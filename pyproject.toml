@@ -1,0 +1,25 @@
+[project]
+name = "PicuiManager"
+version = "0.0.1"
+description = "Mange images in picui.cn"
+authors = [{ name = "TaoChenyue", email = "chenyue.Tao@qq.com" }]
+dependencies = [
+    "tqdm>=4.66.4",
+    "requests>=2.32.3",
+]
+requires-python = ">=3.8"
+readme = "README.md"
+license = { text = "MIT" }
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "tinify>=1.6.0",
+]
