@@ -51,7 +51,7 @@ def sync_dir(path: str):
     upload = Upload(settings)
     for image in tqdm(keys_upload, desc="uploading"):
         key = image.relative_to(root).as_posix()
-        upload.request(method="post", files={"file": open(image, "rb")})
+        upload.request(method="post", files={image.name: open(image, "rb")})
         record[key] = upload.data
         json.dump(record, open("record.json", "w"), indent=4)
 
