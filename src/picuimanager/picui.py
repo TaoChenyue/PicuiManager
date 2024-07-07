@@ -206,4 +206,24 @@ class PicuiManager:
         ans = self.request(url=Urls.upload.path, method="post", data=data, files=files)
         return ans
 
+    def get_hashes(self, info: List[Dict], method: Literal["md5", "sha1"] = "sha1"):
+        if method not in ["md5", "sha1"]:
+            raise ValueError("method must be 'md5' or 'sha1'")
+        return {x[method]: x["key"] for x in info}
 
+    def sync_images(self, fm: FilesManager, method: Literal["md5", "sha1"] = "sha1"):
+        remote_images = self.get_images()
+        remote = self.get_hashes(remote_images, method=method)
+        local = fm.get_hashes(method=method)
+        all_hashs = set(local.keys()) | set(remote.keys())
+        for h in all_hashs:
+            l_e = h in local
+            r_e = h in remote
+            if l_e and r_e:
+                continue
+            if r_e:
+                self.delete_image(key=remote[h])
+                self.logger.info(f"成功删除{remote[h]}")
+            if l_e:
+                self.upload_image(path=(fm.root / local[h]).as_posix())
+                self.logger.info(f"成功上传{local[h]}")
