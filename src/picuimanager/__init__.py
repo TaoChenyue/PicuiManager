@@ -1,3 +1,3 @@
-from .urls import Urls
-from .settings import Settings
-from .api import Profile,Strategies,Albums,Images,Upload
+from .buckets.files import FilesManager
+from .buckets.picui import PicuiManager
+from .utils.tinify import TinifyManager

@@ -1,2 +1,2 @@
 # PicuiManager
-Mange images in picui.cn
+Manage images in picui.cn
