@@ -1,7 +1,8 @@
+import threading
 from pathlib import Path
 from typing import List
+
 import tinify
-import threading
 
 
 class TinifyThread(threading.Thread):
@@ -20,11 +21,11 @@ class TinifyManager:
     def __init__(self, api_key: str):
         tinify.key = api_key
 
-    def upload(self, root1: Path, root2: Path, paths: List[str]):
+    def compress(self, root1: Path, root2: Path, paths: List[str]):
         threads = []
         for p in paths:
             threads.append(TinifyThread((root1 / p).as_posix(), (root2 / p).as_posix()))
-        print(f"开始压缩{len(threads)}个文件...")
+        print(f"Start compressing {len(threads)} files...")
         for t in threads:
             t.start()
         for t in threads:

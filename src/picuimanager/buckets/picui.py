@@ -1,68 +1,85 @@
-from pathlib import Path
+from enum import Enum
+from typing import Dict, List, Literal, Optional
+
 import requests
-import logging.handlers
-from .urls import Urls
-from typing import Literal, Optional, List, Dict, Tuple
+
+from picuimanager.utils.confirm import confirm
+from picuimanager.utils.logger import get_logger
+
 from .files import FilesManager
 
 
+class Urls(Enum):
+    profile = "profile/"
+    strategies = "strategies/"
+    albums = "albums/"
+    images = "images/"
+    upload = "upload/"
+
+    @property
+    def path(self):
+        return "https://picui.cn/api/v1/" + self.value
+
+
+class ErrorStatus(Enum):
+    _401 = "unauthorized"
+    _403 = "API disabled by administrator"
+    _429 = "request quota is exceeded and restricted"
+    _500 = "server exception"
+    unknown = "unknown error"
+
+
 class PicuiManager:
-    def __init__(self, token: str = "", log_file: str = "picui.log"):
+    def __init__(self, token: str = "", log_file: str = "logs/picui.log"):
         """
-        Picui图像管理器,使用网站的API接口交互。
-        [接口文档]https://picui.cn/page/api-docs.html
+        Manage images in picui.cn, see [API docs]https://picui.cn/page/api-docs.html
 
         Args:
-            token (str, optional): 用户token. Defaults to "".
-            log_file (str, optional): 日志文件. Defaults to "picui.log".
+            token (str, optional): user token. Defaults to "".
+            log_file (str, optional): file for log. Defaults to "logs/picui.log".
         """
         self.token = token
-        self.logger = self._logger(log_file)
+        self.logger = get_logger(log_file)
         #
         self.X_rate_limit = 1
         self.X_rate_remain = 1
 
     @property
-    def headers(self) -> Dict[str, str]:
+    def _headers(self) -> Dict[str, str]:
         """
-        请求picui.cn的头文件
+        headers for request
 
         Returns:
-            Dict[str,str]: 头文件字典
+            Dict[str, str]: header with token
         """
-        ans = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36",
+        return {
             "Authorization": f"Bearer {self.token}",
             "Accept": "application/json",
-            "Connection": "close",
         }
-        return ans
 
-    def _logger(self, log_file: str) -> logging.Logger:
-        """
-        日志管理
+    def _report_error(self, message: str):
+        self.logger.info(message)
+        raise Exception(message)
 
-        Args:
-            log_file (str): 日志文件
+    def _report_error_status_code(self, status_code: int):
+        if status_code == 200:
+            return
+        if status_code != 200:
+            if status_code == 401:
+                message = ErrorStatus._401
+            elif status_code == 403:
+                message = ErrorStatus._403
+            elif status_code == 429:
+                message = ErrorStatus._429
+            elif status_code == 500:
+                message = ErrorStatus._500
+            else:
+                message = f"{ErrorStatus.unknown}, status_code={status_code}"
+            self._report_error(message=message)
 
-        Returns:
-            logging.Logger: 日志管理器
-        """
-        log_file: Path = Path(log_file)
-        Path(log_file).parent.mkdir(exist_ok=True, parents=True)
-        logger = logging.getLogger(log_file.name)
-        logger.setLevel(logging.DEBUG)
-        streamhandler = logging.StreamHandler()
-        filehandler = logging.handlers.TimedRotatingFileHandler(
-            log_file.as_posix(),
-            when="D",
-            interval=1,
-            backupCount=7,
-            encoding="utf-8",
-        )
-        logger.addHandler(filehandler)
-        logger.addHandler(streamhandler)
-        return logger
+    def _parse_headers(self, headers: Dict[str, str]):
+        self.X_rate_limit = int(headers.get("X-RateLimit-Limit", 0))
+        self.X_rate_remain = int(headers.get("X-RateLimit-Remaining", 0))
 
     def request(
         self,
@@ -73,43 +90,29 @@ class PicuiManager:
         files={},
     ) -> Dict:
         if self.X_rate_remain == 0:
-            exception = "请求配额已用完，等待重置"
+            exception = "request quota is exceeded, wait for reseting please."
             self.logger.info(exception)
             raise Exception(exception)
 
         response = requests.request(
             method=method,
             url=url,
-            headers=self.headers,
+            headers=self._headers,
             params=params,
             data=data,
             files=files,
         )
 
-        if response.status_code != 200:
-            if response.status_code == 401:
-                exception = "未登录或授权失败"
-            elif response.status_code == 403:
-                exception = "管理员关闭了接口功能或没有该接口权限"
-            elif response.status_code == 429:
-                exception = "超出请求配额，请求受限"
-            elif response.status_code == 500:
-                exception = "服务器出现异常"
-            else:
-                exception = f"请求失败，状态码：{response.status_code}"
-            self.logger.info(exception)
-            raise Exception(exception)
+        self._report_error_status_code(response.status_code)
+        self._parse_headers(headers=response.headers)
 
-        headers = response.headers
-        self.X_rate_limit = int(headers.get("X-RateLimit-Limit", 0))
-        self.X_rate_remain = int(headers.get("X-RateLimit-Remaining", 0))
+        try:
+            data = response.json()
+        except:
+            self._report_error("response is not json")
 
-        data = response.json()
-        status = data.get("status", False)
-        message = data.get("message", "")
-        if status == False:
-            self.logger.info(f"状态异常，{message}")
-            raise Exception(f"状态异常，{message}")
+        if not data.get("status", False):
+            self._report_error(message=data.get("message", ""))
 
         data = data.get("data", {})
 
@@ -133,7 +136,7 @@ class PicuiManager:
         current_page = data.get("current_page", 0)
         last_page = data.get("last_page", 0)
 
-        self.logger.info(f"成功获取{url},{current_page}/{page}页")
+        self.logger.info(f"Got {url},{current_page}/{page}页")
 
         if current_page != last_page:
             ans += self.get_pages(
@@ -211,19 +214,34 @@ class PicuiManager:
             raise ValueError("method must be 'md5' or 'sha1'")
         return {x[method]: x["key"] for x in info}
 
-    def sync_images(self, fm: FilesManager, method: Literal["md5", "sha1"] = "sha1"):
+    def sync(self, fm: FilesManager, method: Literal["md5", "sha1"] = "sha1"):
         remote_images = self.get_images()
         remote = self.get_hashes(remote_images, method=method)
         local = fm.get_hashes(method=method)
         all_hashs = set(local.keys()) | set(remote.keys())
+
+        delete_items = []
+        upload_items = []
+
         for h in all_hashs:
             l_e = h in local
             r_e = h in remote
             if l_e and r_e:
                 continue
             if r_e:
-                self.delete_image(key=remote[h])
-                self.logger.info(f"成功删除{remote[h]}")
+                delete_items.append(h)
             if l_e:
-                self.upload_image(path=(fm.root / local[h]).as_posix())
-                self.logger.info(f"成功上传{local[h]}")
+                upload_items.append(h)
+
+        if not confirm(
+            f"{len(delete_items)} images will be deleted,{len(upload_items)} images will be uploaded. Continue?"
+        ):
+            return
+
+        for i, h in enumerate(delete_items):
+            self.delete_image(key=remote[h])
+            self.logger.info(f"Deleted {i}/{len(delete_items)} {remote[h]}")
+
+        for i, h in enumerate(upload_items):
+            self.upload_image(path=(fm.root / local[h]).as_posix())
+            self.logger.info(f"Uploaded {i}/{len(upload_items)} {local[h]}")

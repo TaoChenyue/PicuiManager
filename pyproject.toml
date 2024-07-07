@@ -3,18 +3,13 @@ name = "PicuiManager"
 version = "1.0.0"
 description = "Mange images in picui.cn"
 authors = [{ name = "TaoChenyue", email = "chenyue.Tao@qq.com" }]
-dependencies = [
-    "tqdm>=4.66.4",
-    "requests>=2.32.3",
-]
+dependencies = ["tqdm>=4.66.4", "requests>=2.32.3"]
 requires-python = ">=3.8"
 readme = "README.md"
 license = { text = "MIT" }
 
 [project.optional-dependencies]
-full = [
-    "tinify>=1.6.0",
-]
+full = ["tinify>=1.6.0"]
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
@@ -24,5 +19,7 @@ build-backend = "pdm.backend"
 distribution = true
 
 [tool.pdm.dev-dependencies]
-dev = [
-]
+dev = ["black>=24.4.2", "isort>=5.13.2"]
+
+[tool.pdm.scripts]
+format = { composite = ["isort src/", "black src/"] }

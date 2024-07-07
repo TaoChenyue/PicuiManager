@@ -1,7 +1,9 @@
-from picuimanager import PicuiManager, FilesManager, TinifyManager
-import json
 import argparse
+import json
 from pathlib import Path
+
+from picuimanager import FilesManager, PicuiManager, TinifyManager
+from picuimanager.utils.confirm import confirm
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -9,7 +11,7 @@ if __name__ == "__main__":
     parser.add_argument("root2", type=str)
     parser.add_argument("picui", type=str)
     parser.add_argument("tinify", type=str)
-    parser.add_argument("--relation", type=str, default="relation.json")
+    parser.add_argument("--relation", type=str, default="logs/relation.json")
     args = parser.parse_args()
 
     fm1 = FilesManager(args.root1)
@@ -22,27 +24,22 @@ if __name__ == "__main__":
     if relation_file.exists():
         relation = json.load(open(relation_file, "r"))
     else:
-        confirm = input("Relation file not found, create new one? (y/n)")
-        if confirm == "y":
+        if confirm("Relation file not found, create new one?"):
             relation = {}
         else:
             exit(0)
 
-    backup_file = relation_file.parent / f"{relation_file.stem}_backup.json"
-    pm.logger.info("-" * 10 + f"backup relation file to {backup_file.as_posix()}")
-    backup_file.write_bytes(relation_file.read_bytes())
-
     pm.logger.info("-" * 10 + "synchronize original images with zipped images")
 
-    relation = fm1.sync(
+    status, relation = fm1.sync(
         fm=fm2,
         relation=relation,
-        sync_func=tm.upload,
+        zip_func=tm.compress,
         method="sha1",
     )
-
-    pm.logger.info("-" * 10 + "update relation file")
-    json.dump(relation, open(relation_file, "w"), indent=4)
+    if status:
+        pm.logger.info("-" * 10 + "update relation file")
+        json.dump(relation, open(relation_file, "w"), indent=4)
 
     pm.logger.info("-" * 10 + "synchronize zipped images with picui.cn")
-    pm.sync_images(fm2)
+    pm.sync(fm2)

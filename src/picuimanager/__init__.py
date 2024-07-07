@@ -1,3 +1,3 @@
-from .picui import PicuiManager
-from .files import FilesManager
-from .tinify import TinifyManager
+from .buckets.files import FilesManager
+from .buckets.picui import PicuiManager
+from .utils.tinify import TinifyManager
