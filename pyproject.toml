@@ -1,6 +1,6 @@
 [project]
 name = "PicuiManager"
-version = "0.0.2"
+version = "1.0.0"
 description = "Mange images in picui.cn"
 authors = [{ name = "TaoChenyue", email = "chenyue.Tao@qq.com" }]
 dependencies = [
