@@ -13,7 +13,7 @@ from picuimanager.utils.logger import get_logger
 class FilesManager:
     suffixs: List[str] = [".jpg", ".jpeg", ".png", ".gif"]
 
-    def __init__(self, root: str, log_file: str = "logs/files.log") -> None:
+    def __init__(self, root: str, log_file: str = None) -> None:
         self.root: Path = Path(root)
         self.logger = get_logger(log_file=log_file)
         if not self.root.exists():

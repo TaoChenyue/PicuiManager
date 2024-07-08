@@ -30,13 +30,13 @@ class ErrorStatus(Enum):
 
 
 class PicuiManager:
-    def __init__(self, token: str = "", log_file: str = "logs/picui.log"):
+    def __init__(self, token: str = "", log_file: str = None):
         """
         Manage images in picui.cn, see [API docs]https://picui.cn/page/api-docs.html
 
         Args:
             token (str, optional): user token. Defaults to "".
-            log_file (str, optional): file for log. Defaults to "logs/picui.log".
+            log_file (str, optional): file for log. Defaults to None.
         """
         self.token = token
         self.logger = get_logger(log_file)
