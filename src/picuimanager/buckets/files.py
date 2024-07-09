@@ -2,7 +2,7 @@ import hashlib
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Literal, Tuple
+from typing import Callable, Dict, List, Literal, Optional, Tuple
 
 from tqdm import tqdm
 
@@ -13,7 +13,7 @@ from picuimanager.utils.logger import get_logger
 class FilesManager:
     suffixs: List[str] = [".jpg", ".jpeg", ".png", ".gif"]
 
-    def __init__(self, root: str, log_file: str = None) -> None:
+    def __init__(self, root: str, log_file: Optional[str] = None) -> None:
         self.root: Path = Path(root)
         self.logger = get_logger(log_file=log_file)
         if not self.root.exists():

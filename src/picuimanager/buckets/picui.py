@@ -30,7 +30,7 @@ class ErrorStatus(Enum):
 
 
 class PicuiManager:
-    def __init__(self, token: str = "", log_file: str = None):
+    def __init__(self, token: str = "", log_file: Optional[str] = None):
         """
         Manage images in picui.cn, see [API docs]https://picui.cn/page/api-docs.html
 
