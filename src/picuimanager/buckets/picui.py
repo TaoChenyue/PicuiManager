@@ -162,6 +162,9 @@ class PicuiManager:
         album_id: Optional[int] = None,
         q: Optional[str] = None,
     ):
+        self.logger.info(
+            f"Grabing {permission} images, order={order},album_id={album_id},q={q}..."
+        )
         params = {"order": order, "permission": permission}
         if album_id is not None:
             params["album_id"] = album_id
@@ -215,7 +218,8 @@ class PicuiManager:
         return {x[method]: x["key"] for x in info}
 
     def sync(self, fm: FilesManager, method: Literal["md5", "sha1"] = "sha1"):
-        remote_images = self.get_images()
+        remote_images = self.get_images(permission="private")
+        remote_images += self.get_images(permission="public")
         remote = self.get_hashes(remote_images, method=method)
         local = fm.get_hashes(method=method)
         all_hashs = set(local.keys()) | set(remote.keys())
@@ -243,5 +247,8 @@ class PicuiManager:
             self.logger.info(f"Deleted {i}/{len(delete_items)} {remote[h]}")
 
         for i, h in enumerate(upload_items):
-            self.upload_image(path=(fm.root / local[h]).as_posix())
-            self.logger.info(f"Uploaded {i}/{len(upload_items)} {local[h]}")
+            self.logger.info(f"Uploading {i}/{len(upload_items)} {local[h]}")
+            self.upload_image(
+                path=(fm.root / local[h]).as_posix(),
+                permission=int("public" in local[h]),
+            )
