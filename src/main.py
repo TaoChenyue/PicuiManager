@@ -1,45 +1,55 @@
-import argparse
-import json
-from pathlib import Path
+from picuimanager import FilesManager, PicuiManager
+from picuimanager.utils.warning import disable_warning
+from picuimanager.utils.confirm import confirm_choice, confirm
 
-from picuimanager import FilesManager, PicuiManager, TinifyManager
-from picuimanager.utils.confirm import confirm
+
+def sync(pm: PicuiManager, fm: FilesManager, album_id: int, permission: str):
+    remote_images = pm.get_images(permission="private", album_id=album_id)
+    remote_images += pm.get_images(permission="public", album_id=album_id)
+    remote = pm.get_hashes(remote_images)
+    local = fm.get_hashes()
+    all_hashs = set(local.keys()) | set(remote.keys())
+
+    delete_items = []
+    upload_items = []
+
+    for h in all_hashs:
+        l_e = h in local
+        r_e = h in remote
+        if l_e and r_e:
+            continue
+        if r_e:
+            delete_items.append(h)
+        if l_e:
+            upload_items.append(h)
+
+    if not confirm(
+        f"{len(delete_items)} images will be deleted,{len(upload_items)} images will be uploaded. Continue?"
+    ):
+        return
+
+    for i, h in enumerate(delete_items):
+        pm.delete_image(key=remote[h])
+        pm.logger.info(f"Deleted {i+1}/{len(delete_items)} {remote[h]}")
+
+    for i, h in enumerate(upload_items):
+        pm.upload_image(
+            path=(fm.root / local[h]).as_posix(),
+            permission=int(permission == "public"),
+            album_id=album_id,
+        )
+        pm.logger.info(f"Uploaded {i+1}/{len(upload_items)} {local[h]}")
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("root1", type=str)
-    parser.add_argument("root2", type=str)
-    parser.add_argument("picui", type=str)
-    parser.add_argument("tinify", type=str)
-    parser.add_argument("--relation", type=str, default="logs/relation.json")
-    args = parser.parse_args()
-
-    fm1 = FilesManager(args.root1)
-    fm2 = FilesManager(args.root2)
-
-    pm = PicuiManager(args.picui)
-    tm = TinifyManager(args.tinify)
-
-    relation_file = Path(args.relation)
-    if relation_file.exists():
-        relation = json.load(open(relation_file, "r"))
-    else:
-        if confirm("Relation file not found, create new one?"):
-            relation = {}
-        else:
-            exit(0)
-
-    pm.logger.info("-" * 10 + "synchronize original images with zipped images")
-
-    status, relation = fm1.sync(
-        fm=fm2,
-        relation=relation,
-        zip_func=tm.compress,
-        method="sha1",
-    )
-    if status:
-        pm.logger.info("-" * 10 + "update relation file")
-        json.dump(relation, open(relation_file, "w"), indent=4)
-
-    pm.logger.info("-" * 10 + "synchronize zipped images with picui.cn")
-    pm.sync(fm2)
+    disable_warning()
+    root = input("Enter the root directory: ")
+    fm = FilesManager(root)
+    token = input("Enter your token: ")
+    pm = PicuiManager(token)
+    albums = pm.get_albums()
+    print(albums)
+    albums_id = [str(i["id"]) for i in albums]
+    album_id = int(confirm_choice("Choose your album:", albums_id))
+    permission = confirm_choice("Choose your permission:", ["public", "private"])
+    sync(pm, fm, album_id, permission)

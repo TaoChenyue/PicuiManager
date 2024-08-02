@@ -30,7 +30,7 @@ class ErrorStatus(Enum):
 
 
 class PicuiManager:
-    def __init__(self, token: str = "", log_file: str = "logs/picui.log"):
+    def __init__(self, token: str = "", log_name: str = "picui"):
         """
         Manage images in picui.cn, see [API docs]https://picui.cn/page/api-docs.html
 
@@ -39,7 +39,7 @@ class PicuiManager:
             log_file (str, optional): file for log. Defaults to "logs/picui.log".
         """
         self.token = token
-        self.logger = get_logger(log_file)
+        self.logger = get_logger(name=log_name)
         #
         self.X_rate_limit = 1
         self.X_rate_remain = 1
@@ -101,6 +101,7 @@ class PicuiManager:
             params=params,
             data=data,
             files=files,
+            verify=False,
         )
 
         self._report_error_status_code(response.status_code)
@@ -213,35 +214,3 @@ class PicuiManager:
         if method not in ["md5", "sha1"]:
             raise ValueError("method must be 'md5' or 'sha1'")
         return {x[method]: x["key"] for x in info}
-
-    def sync(self, fm: FilesManager, method: Literal["md5", "sha1"] = "sha1"):
-        remote_images = self.get_images()
-        remote = self.get_hashes(remote_images, method=method)
-        local = fm.get_hashes(method=method)
-        all_hashs = set(local.keys()) | set(remote.keys())
-
-        delete_items = []
-        upload_items = []
-
-        for h in all_hashs:
-            l_e = h in local
-            r_e = h in remote
-            if l_e and r_e:
-                continue
-            if r_e:
-                delete_items.append(h)
-            if l_e:
-                upload_items.append(h)
-
-        if not confirm(
-            f"{len(delete_items)} images will be deleted,{len(upload_items)} images will be uploaded. Continue?"
-        ):
-            return
-
-        for i, h in enumerate(delete_items):
-            self.delete_image(key=remote[h])
-            self.logger.info(f"Deleted {i}/{len(delete_items)} {remote[h]}")
-
-        for i, h in enumerate(upload_items):
-            self.upload_image(path=(fm.root / local[h]).as_posix())
-            self.logger.info(f"Uploaded {i}/{len(upload_items)} {local[h]}")
